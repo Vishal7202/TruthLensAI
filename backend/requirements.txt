@@ -7,3 +7,9 @@ sentence-transformers
 scikit-learn
 joblib
 PyJWT
+pdf2image
+Pillow
+numpy
+scipy
+torch
+transformers

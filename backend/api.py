@@ -77,12 +77,34 @@ conn.commit()
 conn.close()
 
 
-# ================= MODELS =================
-nlp = spacy.load("en_core_web_sm")
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
-model = joblib.load(MODEL_PATH)
-vectorizer = joblib.load(VEC_PATH)
+import os
+import spacy
+import joblib
+from sentence_transformers import SentenceTransformer
 
+# ================= MODELS =================
+
+# 🔹 Spacy safe load
+try:
+    nlp = spacy.load("en_core_web_sm")
+except:
+    import spacy.cli
+    spacy.cli.download("en_core_web_sm")
+    nlp = spacy.load("en_core_web_sm")
+
+# 🔹 Sentence Transformer safe load
+try:
+    embedder = SentenceTransformer("all-MiniLM-L6-v2")
+except:
+    embedder = None
+
+# 🔹 ML Model safe load
+try:
+    model = joblib.load(MODEL_PATH)
+    vectorizer = joblib.load(VEC_PATH)
+except:
+    model = None
+    vectorizer = None
 
 # ================= UTILITIES =================
 
