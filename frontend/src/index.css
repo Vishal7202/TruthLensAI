@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+/* ================= ROOT ================= */
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  isolation: isolate;
+}
+
+/* ================= BODY BASE ================= */
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #020617; /* Deep cinematic base */
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ================= GLOBAL RESET ================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* ================= SCROLLBAR ================= */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ================= FADE IN ================= */
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.7s ease-out;
+}
+
+/* ================= SLIDE UP ================= */
+
+@keyframes slideUp {
+  from { 
+    opacity: 0; 
+    transform: translateY(40px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+.animate-slideUp {
+  animation: slideUp 0.6s ease forwards;
+}
+
+/* ================= GRADIENT BACKGROUND MOVE ================= */
+
+@keyframes gradientMove {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradientMove {
+  animation: gradientMove 18s ease-in-out infinite;
+  will-change: background-position;
+}
+
+/* ================= LIGHT SWEEP EFFECT ================= */
+
+@keyframes lightSweep {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+
+.before\:animate-lightSweep::before {
+  animation: lightSweep 6s linear infinite;
+}
+
+/* ================= REVEAL SCROLL ================= */
+
+.reveal {
+  transform: translateY(40px);
+  opacity: 0;
+}
+
+.reveal.show {
+  transform: translateY(0);
+  opacity: 1;
+  transition: all 0.8s ease;
+}
+
+/* ================= BUTTON GPU FIX ================= */
+
+button {
+  transform: translateZ(0);
+}
+
+/* ================= OPTIONAL GLOW UTILITIES ================= */
+
+.glow-indigo {
+  box-shadow: 0 0 25px rgba(99, 102, 241, 0.6);
+}
+
+.glow-sky {
+  box-shadow: 0 0 25px rgba(56, 189, 248, 0.6);
+}
+
+/* ================= PERFORMANCE OPTIMIZATION ================= */
+
+.animate-gradientMove,
+.animate-fadeIn,
+.animate-slideUp {
+  will-change: transform, opacity;
+}
