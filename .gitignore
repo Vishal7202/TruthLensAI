@@ -22,3 +22,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Python
+__pycache__/
+*.pyc
+
+# Database
+*.db
+
+# ML Models
+*.pkl
+
+# Dataset
+dataset/
