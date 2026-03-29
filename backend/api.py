@@ -84,35 +84,11 @@ from sentence_transformers import SentenceTransformer
 
 # ================= MODELS =================
 
-# 🔹 Spacy safe load
+# Safe optional import
 try:
-    nlp = spacy.load("en_core_web_sm")
+    from pdf2image import convert_from_bytes
 except:
-    import spacy.cli
-    spacy.cli.download("en_core_web_sm")
-    nlp = spacy.load("en_core_web_sm")
-
-# 🔹 Sentence Transformer safe load
-try:
-    embedder = SentenceTransformer("all-MiniLM-L6-v2")
-except:
-    embedder = None
-
-# 🔹 ML Model safe load
-try:
-    model = joblib.load(MODEL_PATH)
-    vectorizer = joblib.load(VEC_PATH)
-except:
-    model = None
-    vectorizer = None
-
-# ================= UTILITIES =================
-
-def normalize_claim(text: str):
-    text = text.lower()
-    text = re.sub(r"[^\w\s°]", "", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+    convert_from_bytes = None
 
 
 def extract_text_from_pdf(file_bytes):
@@ -124,13 +100,17 @@ def extract_text_from_pdf(file_bytes):
         if t:
             full_text += t + " "
 
+    # 🔹 Safe fallback OCR
     if not full_text.strip():
-        images = convert_from_bytes(file_bytes)
-        for img in images:
-            full_text += pytesseract.image_to_string(img) + " "
+        try:
+            if convert_from_bytes:
+                images = convert_from_bytes(file_bytes)
+                for img in images:
+                    full_text += pytesseract.image_to_string(img) + " "
+        except:
+            pass
 
     return full_text.strip()
-
 
 def split_into_claims(text):
     doc = nlp(text)
