@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
-from pdf2image import convert_from_bytes
+#from pdf2image import convert_from_bytes
 import pytesseract
 import joblib
 import spacy
