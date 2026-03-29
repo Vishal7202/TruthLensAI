@@ -10,7 +10,7 @@ PyJWT
 pdf2image
 Pillow
 numpy
-scipy
+spacy==3.7.2
 torch
 transformers
 pytesseract
