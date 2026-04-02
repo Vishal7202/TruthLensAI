@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { getUser, clearAuth } from "../utils/auth";
+import { getUser, clearAuth, isLoggedIn } from "../utils/auth";
 
 export default function Navbar(){
 
@@ -13,23 +13,26 @@ const navigate=useNavigate();
 const location=useLocation();
 const profileRef=useRef();
 
-/* 👉 detect landing or dashboard */
 const isLanding = location.pathname === "/";
 
-/* close menus on route change */
+/* ✅ sync user properly */
+useEffect(()=>{
+const sync=()=>setUser(getUser());
+window.addEventListener("storage",sync);
+window.addEventListener("focus",sync);
+return()=>{
+window.removeEventListener("storage",sync);
+window.removeEventListener("focus",sync);
+};
+},[]);
+
+/* close menus */
 useEffect(()=>{
 setMobileOpen(false);
 setProfileOpen(false);
 },[location.pathname]);
 
-/* sync login across tabs */
-useEffect(()=>{
-const syncUser=()=>setUser(getUser());
-window.addEventListener("storage",syncUser);
-return()=>window.removeEventListener("storage",syncUser);
-},[]);
-
-/* close dropdown outside */
+/* outside click */
 useEffect(()=>{
 const close=e=>{
 if(profileRef.current && !profileRef.current.contains(e.target)){
@@ -38,32 +41,6 @@ setProfileOpen(false);
 document.addEventListener("mousedown",close);
 return()=>document.removeEventListener("mousedown",close);
 },[]);
-
-/* 👉 scroll detection ONLY on landing */
-useEffect(()=>{
-
-if(!isLanding) return;
-
-const sections=["home","features","how","contact"];
-
-const onScroll=()=>{
-for(let id of sections){
-const el=document.getElementById(id);
-if(el){
-const rect=el.getBoundingClientRect();
-if(rect.top<=120 && rect.bottom>=120){
-setActive(id);
-break;
-}
-}
-}
-};
-
-
-window.addEventListener("scroll",onScroll);
-return()=>window.removeEventListener("scroll",onScroll);
-
-},[isLanding]);
 
 /* logout */
 const handleLogout=()=>{
@@ -81,13 +58,13 @@ if(!isLanding){
 navigate("/");
 setTimeout(()=>{
 document.getElementById(id)?.scrollIntoView({behavior:"smooth"});
-},350);
+},300);
 }else{
 document.getElementById(id)?.scrollIntoView({behavior:"smooth"});
 }
 };
 
-/* link style */
+/* styles */
 const link=id=>`
 px-4 py-2 rounded-lg text-sm font-medium transition
 ${active===id
@@ -97,7 +74,7 @@ ${active===id
 
 return(
 
-<nav className="fixed top-0 left-0 w-full z-[999] bg-[#020617]/80 backdrop-blur-xl border-b border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
+<nav className="fixed top-0 left-0 w-full z-[999] bg-[#020617]/80 backdrop-blur-xl border-b border-white/10">
 
 <div className="max-w-7xl mx-auto px-4">
 
@@ -105,68 +82,66 @@ return(
 
 {/* LOGO */}
 <div onClick={()=> isLanding ? goTo("home") : navigate("/")}
-className="flex items-center gap-3 cursor-pointer group">
+className="flex items-center gap-3 cursor-pointer">
 
-<img
-src="/logo.png"
-alt="TruthLens AI"
-className="h-14 w-auto object-contain
-drop-shadow-[0_0_18px_rgba(59,130,246,0.7)]
-group-hover:scale-105 transition"
-/>
-
-<span className="text-2xl font-semibold tracking-wide
-bg-gradient-to-r from-cyan-300 to-indigo-400
-text-transparent bg-clip-text">
+<img src="/logo.png" className="h-12"/>
+<span className="text-xl text-cyan-300 font-semibold">
 TruthLens AI
 </span>
 
 </div>
 
-{/* DESKTOP MENU */}
+{/* DESKTOP */}
 <div className="hidden md:flex items-center gap-2">
 
-{/* 👉 show landing menu ONLY on landing */}
 {isLanding && (
 <>
 <button onClick={()=>goTo("home")} className={link("home")}>Home</button>
 <button onClick={()=>goTo("features")} className={link("features")}>Features</button>
-<button onClick={()=>goTo("how")} className={link("how")}>How it Works</button>
+<button onClick={()=>goTo("how")} className={link("how")}>How</button>
 <button onClick={()=>goTo("contact")} className={link("contact")}>Contact</button>
 </>
 )}
 
-{/* LOGIN */}
-{!user ? (
+{/* AUTH */}
+{!isLoggedIn()?(
 <button
 onClick={()=>navigate("/login")}
-className="ml-4 bg-gradient-to-r from-sky-500 to-indigo-500
-hover:scale-105 transition px-6 py-2 rounded-xl
-font-semibold shadow-lg shadow-blue-500/30">
+className="ml-4 bg-indigo-500 px-5 py-2 rounded-xl">
 Login
 </button>
-):( 
+):(
 
 <div ref={profileRef} className="relative ml-4">
 
-<button onClick={()=>setProfileOpen(!profileOpen)}>
+<button onClick={()=>setProfileOpen(!profileOpen)}
+className="flex items-center gap-2">
+
 <img
 src={user?.avatar || "https://i.pravatar.cc/40"}
-alt="profile"
-className="w-11 h-11 rounded-full border border-white/30"/>
+className="w-10 h-10 rounded-full"/>
+
+<span className="hidden lg:block text-sm">
+{user?.name || "User"}
+</span>
+
 </button>
 
 {profileOpen&&(
 <div className="absolute right-0 mt-3 w-52 bg-[#020617]
-border border-white/10 shadow-2xl rounded-xl p-2">
+border border-white/10 shadow-xl rounded-xl p-2">
+
+<p className="px-4 py-2 text-sm text-gray-400">
+{user?.email}
+</p>
 
 <button onClick={()=>navigate("/dashboard")}
-className="w-full text-left px-4 py-2 rounded-lg hover:bg-white/10">
+className="w-full text-left px-4 py-2 hover:bg-white/10">
 Dashboard
 </button>
 
 <button onClick={handleLogout}
-className="w-full text-left px-4 py-2 rounded-lg hover:bg-red-500/20 text-red-400">
+className="w-full text-left px-4 py-2 text-red-400 hover:bg-red-500/20">
 Logout
 </button>
 
@@ -178,10 +153,10 @@ Logout
 
 </div>
 
-{/* MOBILE BTN */}
+{/* MOBILE */}
 <button
 onClick={()=>setMobileOpen(!mobileOpen)}
-className="md:hidden text-white text-2xl">
+className="md:hidden text-xl">
 ☰
 </button>
 
@@ -195,21 +170,19 @@ className="md:hidden text-white text-2xl">
 <>
 <button onClick={()=>goTo("home")} className={link("home")}>Home</button>
 <button onClick={()=>goTo("features")} className={link("features")}>Features</button>
-<button onClick={()=>goTo("how")} className={link("how")}>How it Works</button>
+<button onClick={()=>goTo("how")} className={link("how")}>How</button>
 <button onClick={()=>goTo("contact")} className={link("contact")}>Contact</button>
 </>
 )}
 
-{!user?(
-<button
-onClick={()=>{setMobileOpen(false);navigate("/login");}}
-className="bg-cyan-500 text-black px-4 py-2 rounded-xl">
+{!isLoggedIn()?(
+<button onClick={()=>navigate("/login")}
+className="bg-indigo-500 px-4 py-2 rounded">
 Login
 </button>
 ):(
-<button
-onClick={handleLogout}
-className="bg-red-500 text-white px-4 py-2 rounded-xl">
+<button onClick={handleLogout}
+className="bg-red-500 px-4 py-2 rounded">
 Logout
 </button>
 )}
