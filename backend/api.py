@@ -203,7 +203,8 @@ def health():
     }
 
 # ================= ROOT =================
-@app.get("/")
-def root():
-    return {"message": "TruthLens API running 🚀"}
+from fastapi.responses import JSONResponse
 
+@app.get("/", include_in_schema=False)
+def root():
+    return JSONResponse(content={"message": "TruthLens API running 🚀"})
