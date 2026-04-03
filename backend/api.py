@@ -13,7 +13,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 import joblib
 import spacy
-from sentence_transformers import SentenceTransformer
 
 # ================= CONFIG =================
 SECRET = os.getenv("SECRET_KEY", "super_secure_production_key")
@@ -79,18 +78,23 @@ init_db()
 
 # ================= MODEL LOAD =================
 try:
-    nlp = spacy.load("en_core_web_sm")
+    # optional spacy
+    try:
+        nlp = spacy.load("en_core_web_sm")
+    except:
+        nlp = None
+
     model = joblib.load(MODEL_PATH)
     vectorizer = joblib.load(VEC_PATH)
-    embedder = SentenceTransformer("all-MiniLM-L6-v2")
+
     MODEL_READY = True
     logger.info("✅ Model loaded")
+
 except Exception as e:
     MODEL_READY = False
     model = None
     vectorizer = None
     logger.warning(f"⚠️ Model load failed: {e}")
-
 # ================= HELPERS =================
 def normalize(text):
     return re.sub(r"\W+", " ", text.lower()).strip()
