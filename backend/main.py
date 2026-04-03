@@ -30,7 +30,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ================= APP =================
-app = FastAPI(title="TruthLens API 🚀", version="2.0")
+app = FastAPI(
+    title="TruthLens API 🚀",
+    version="2.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
 
 app.add_middleware(
     CORSMiddleware,
