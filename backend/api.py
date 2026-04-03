@@ -12,7 +12,7 @@ from pydantic import BaseModel, EmailStr, Field
 from werkzeug.security import generate_password_hash, check_password_hash
 
 import joblib
-import spacy
+
 
 # ================= CONFIG =================
 SECRET = os.getenv("SECRET_KEY", "super_secure_production_key")
@@ -78,12 +78,6 @@ init_db()
 
 # ================= MODEL LOAD =================
 try:
-    # optional spacy
-    try:
-        nlp = spacy.load("en_core_web_sm")
-    except:
-        nlp = None
-
     model = joblib.load(MODEL_PATH)
     vectorizer = joblib.load(VEC_PATH)
 
