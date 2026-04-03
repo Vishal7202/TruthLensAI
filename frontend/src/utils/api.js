@@ -1,17 +1,19 @@
-const BASE_URL =
-  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+const BASE_URL = import.meta.env.VITE_API_URL;
+
+if (!BASE_URL) {
+  throw new Error("❌ VITE_API_URL is not defined in environment variables");
+}
 
 export async function apiFetch(endpoint, options = {}) {
   try {
     const token = localStorage.getItem("token");
 
-    // 🔹 Normalize URL
     const url = endpoint.startsWith("/")
       ? BASE_URL + endpoint
       : BASE_URL + "/" + endpoint;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const timeout = setTimeout(() => controller.abort(), 10000);
 
     const res = await fetch(url, {
       ...options,
@@ -25,14 +27,12 @@ export async function apiFetch(endpoint, options = {}) {
 
     clearTimeout(timeout);
 
-    // 🔐 Unauthorized
     if (res.status === 401) {
       localStorage.clear();
       window.location.href = "/login";
       return;
     }
 
-    // 📦 Safe response parsing
     let data;
     const text = await res.text();
 
@@ -42,7 +42,6 @@ export async function apiFetch(endpoint, options = {}) {
       data = { message: text };
     }
 
-    // ❌ Error handling
     if (!res.ok) {
       throw new Error(data.detail || data.message || "Server error");
     }
