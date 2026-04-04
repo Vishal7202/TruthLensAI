@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
+import { signup } from "../utils/auth";
 export default function Signup(){
 
   const navigate = useNavigate();
@@ -12,41 +12,53 @@ export default function Signup(){
   const [error,setError]=useState("");
   const [loading,setLoading]=useState(false);
 
-  async function handleSignup(e){
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+  async function handleSignup(e) {
+  e.preventDefault();
+  setError("");
+  setLoading(true);
 
-    try{
-
-      const res = await fetch("http://127.0.0.1:8000/register",{
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body:JSON.stringify({ name,email,password })
-      });
-
-      const data = await res.json();
-
-      if(!res.ok){
-        setError(data.detail || "Signup failed");
-        setLoading(false);
-        return;
-      }
-
-      // SAVE SESSION
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-
-      // 👉 PROFESSIONAL REDIRECT
-      navigate("/dashboard");
-
-    }catch(err){
-      setError("Server error");
-    }
-
+  // ✅ validation
+  if (!name.trim() || !email.trim() || !password.trim()) {
+    setError("All fields are required ❌");
     setLoading(false);
+    return;
   }
 
+  // ✅ better email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!emailRegex.test(email)) {
+    setError("Enter valid email address ❌");
+    setLoading(false);
+    return;
+  }
+
+  if (password.length < 5) {
+    setError("Password must be at least 5 characters 🔒");
+    setLoading(false);
+    return;
+  }
+
+  try {
+    const data = await signup({ name, email, password });
+
+    // ✅ safe storage
+    if (data?.token) {
+      localStorage.setItem("token", data.token);
+    }
+
+    if (data?.user) {
+      localStorage.setItem("user", JSON.stringify(data.user));
+    }
+
+    navigate("/dashboard");
+
+  } catch (err) {
+    setError(err.message || "Signup failed ❌");
+  }
+
+  setLoading(false);
+}
   return(
 
     <div

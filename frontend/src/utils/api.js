@@ -1,3 +1,5 @@
+console.log("ENV:", import.meta.env);
+console.log("BASE_URL:", import.meta.env.VITE_API_URL);
 const BASE_URL = import.meta.env.VITE_API_URL;
 
 if (!BASE_URL) {
@@ -43,8 +45,18 @@ export async function apiFetch(endpoint, options = {}) {
     }
 
     if (!res.ok) {
-      throw new Error(data.detail || data.message || "Server error");
-    }
+  let errorMessage = "Server error";
+
+  if (Array.isArray(data.detail)) {
+    errorMessage = data.detail.map(err => err.msg).join(", ");
+  } else if (typeof data.detail === "string") {
+    errorMessage = data.detail;
+  } else if (data.message) {
+    errorMessage = data.message;
+  }
+
+  throw new Error(errorMessage);
+}
 
     return data;
 

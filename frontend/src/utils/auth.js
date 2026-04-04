@@ -1,3 +1,5 @@
+import { apiFetch } from "./api";
+
 // ================= SET AUTH =================
 export const setAuth = (data) => {
   if (!data?.token) return;
@@ -36,6 +38,45 @@ export const clearAuth = () => {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
 
-  // redirect after logout
   window.location.href = "/login";
+};
+
+// ================= SIGNUP =================
+export const signup = async ({ name, email, password }) => {
+  try {
+    const data = await apiFetch("/register", {
+      method: "POST",
+        body: JSON.stringify({
+          name: name,
+          email,
+          password,
+        }),
+    });
+
+    return data;
+  } catch (error) {
+    console.error("Signup error:", error);
+    throw new Error(error.message || "Signup failed");
+  }
+};
+
+// ================= LOGIN =================
+export const login = async ({ email, password }) => {
+  try {
+    const data = await apiFetch("/login", {
+      method: "POST",
+      body: JSON.stringify({
+        email,
+        password,
+      }),
+    });
+
+    // auto save auth
+    setAuth(data);
+
+    return data;
+  } catch (error) {
+    console.error("Login error:", error);
+    throw new Error(error.message || "Login failed");
+  }
 };

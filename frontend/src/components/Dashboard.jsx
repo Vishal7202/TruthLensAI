@@ -1,3 +1,4 @@
+import { apiFetch } from "../utils/api";
 import { useEffect, useState, useRef } from "react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -50,12 +51,9 @@ const fetchStats=async()=>{
 try{
 const token=localStorage.getItem("token");
 
-const res=await fetch("http://127.0.0.1:8000/dashboard/stats",{
-headers:{Authorization:`Bearer ${token}`}
-});
 
-if(!res.ok) throw new Error();
-const data=await res.json();
+
+const data = await apiFetch("/health");
 
 const target=[
 {label:"Total Checks",value:data.total??0,color:"from-sky-500 to-indigo-500"},

@@ -213,3 +213,66 @@ from fastapi.responses import JSONResponse
 @app.get("/", include_in_schema=False)
 def root():
     return JSONResponse(content={"message": "TruthLens API running 🚀"})
+@app.get("/dashboard/stats")
+def dashboard_stats(user=Depends(verify_token)):
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    # ===== TOTAL =====
+    cur.execute("SELECT COUNT(*) FROM history")
+    total = cur.fetchone()[0]
+
+    # ===== TRUE =====
+    cur.execute("SELECT COUNT(*) FROM history WHERE label='TRUE'")
+    true = cur.fetchone()[0]
+
+    # ===== FALSE =====
+    cur.execute("SELECT COUNT(*) FROM history WHERE label='FALSE'")
+    false = cur.fetchone()[0]
+
+    # ===== UNVERIFIED =====
+    cur.execute("SELECT COUNT(*) FROM history WHERE label='UNVERIFIED'")
+    unverified = cur.fetchone()[0]
+
+    # ===== RECENT =====
+    cur.execute("""
+        SELECT claim, label, timestamp
+        FROM history
+        ORDER BY timestamp DESC
+        LIMIT 5
+    """)
+
+    recent = [
+        {
+            "text": row[0],
+            "label": row[1],
+            "date": row[2]
+        }
+        for row in cur.fetchall()
+    ]
+
+    # ===== TRAFFIC (last 7 days) =====
+    cur.execute("""
+        SELECT DATE(timestamp), COUNT(*)
+        FROM history
+        GROUP BY DATE(timestamp)
+        ORDER BY DATE(timestamp) DESC
+        LIMIT 7
+    """)
+
+    traffic = [
+        {"day": row[0], "checks": row[1]}
+        for row in cur.fetchall()
+    ]
+
+    conn.close()
+
+    return {
+        "total": total,
+        "true": true,
+        "false": false,
+        "unverified": unverified,
+        "recent": recent,
+        "traffic": traffic
+    }
