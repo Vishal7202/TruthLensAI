@@ -161,14 +161,21 @@ def login(data: Login):
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("SELECT * FROM users WHERE email=?", (data.email,))
+    cur.execute("SELECT id,name,email,password FROM users WHERE email=?", (data.email,))
     user = cur.fetchone()
     conn.close()
 
     if not user or not check_password_hash(user[3], data.password):
         raise HTTPException(401, "Invalid credentials")
 
-    return {"token": create_token(user[0])}
+    return {
+        "token": create_token(user[0]),
+        "user": {
+            "id": user[0],
+            "name": user[1],
+            "email": user[2]
+        }
+    }
 
 # ================= VERIFY =================
 @app.post("/verify")
@@ -214,7 +221,7 @@ from fastapi.responses import JSONResponse
 def root():
     return JSONResponse(content={"message": "TruthLens API running 🚀"})
 @app.get("/dashboard/stats")
-def dashboard_stats(user=Depends(verify_token)):
+def dashboard_stats():
 
     conn = get_db()
     cur = conn.cursor()
