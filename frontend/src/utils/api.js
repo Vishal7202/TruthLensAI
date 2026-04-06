@@ -1,5 +1,6 @@
 console.log("ENV:", import.meta.env);
 console.log("BASE_URL:", import.meta.env.VITE_API_URL);
+
 const BASE_URL = import.meta.env.VITE_API_URL;
 
 if (!BASE_URL) {
@@ -21,18 +22,19 @@ export async function apiFetch(endpoint, options = {}) {
       ...options,
       signal: controller.signal,
       headers: {
-        "Content-Type": "application/json",
+        ...(options.headers || {}), // ✅ FIRST
+        "Content-Type": "application/json", // ✅ FORCE
         ...(token && { Authorization: `Bearer ${token}` }),
-        ...(options.headers || {}),
       },
     });
 
     clearTimeout(timeout);
 
+    // ✅ FIX: 401 handling proper
     if (res.status === 401) {
       localStorage.clear();
       window.location.href = "/login";
-      return;
+      throw new Error("Session expired, please login again");
     }
 
     let data;
@@ -45,18 +47,18 @@ export async function apiFetch(endpoint, options = {}) {
     }
 
     if (!res.ok) {
-  let errorMessage = "Server error";
+      let errorMessage = "Server error";
 
-  if (Array.isArray(data.detail)) {
-    errorMessage = data.detail.map(err => err.msg).join(", ");
-  } else if (typeof data.detail === "string") {
-    errorMessage = data.detail;
-  } else if (data.message) {
-    errorMessage = data.message;
-  }
+      if (Array.isArray(data.detail)) {
+        errorMessage = data.detail.map(err => err.msg).join(", ");
+      } else if (typeof data.detail === "string") {
+        errorMessage = data.detail;
+      } else if (data.message) {
+        errorMessage = data.message;
+      }
 
-  throw new Error(errorMessage);
-}
+      throw new Error(errorMessage);
+    }
 
     return data;
 

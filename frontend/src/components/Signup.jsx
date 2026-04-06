@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { signup } from "../utils/auth";
+import { apiFetch } from "../utils/api"; // ✅ FIX
+
 export default function Signup(){
 
   const navigate = useNavigate();
@@ -13,52 +14,53 @@ export default function Signup(){
   const [loading,setLoading]=useState(false);
 
   async function handleSignup(e) {
-  e.preventDefault();
-  setError("");
-  setLoading(true);
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-  // ✅ validation
-  if (!name.trim() || !email.trim() || !password.trim()) {
-    setError("All fields are required ❌");
-    setLoading(false);
-    return;
-  }
+    // ✅ validation
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      setError("All fields are required ❌");
+      setLoading(false);
+      return;
+    }
 
-  // ✅ better email validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  if (!emailRegex.test(email)) {
-    setError("Enter valid email address ❌");
-    setLoading(false);
-    return;
-  }
+    if (!emailRegex.test(email)) {
+      setError("Enter valid email address ❌");
+      setLoading(false);
+      return;
+    }
 
-  if (password.length < 5) {
-    setError("Password must be at least 5 characters 🔒");
-    setLoading(false);
-    return;
-  }
+    if (password.length < 5) {
+      setError("Password must be at least 5 characters 🔒");
+      setLoading(false);
+      return;
+    }
 
-  try {
-    const data = await signup({ name, email, password });
+    try {
+      // ✅ FIXED (direct backend call)
+      const data = await apiFetch("/register", {
+        method: "POST",
+        body: JSON.stringify({ name, email, password }),
+      });
 
-    // ✅ safe storage
-    if (data?.token) {
+      // ✅ FIXED (proper storage)
       localStorage.setItem("token", data.token);
+      localStorage.setItem("role", data.role);
+
+      alert("Account created successfully ✅");
+
+      navigate("/login");
+
+    } catch (err) {
+      setError(err.message || "Signup failed ❌");
     }
 
-    if (data?.user) {
-      localStorage.setItem("user", JSON.stringify(data.user));
-    }
-
-    navigate("/dashboard");
-
-  } catch (err) {
-    setError(err.message || "Signup failed ❌");
+    setLoading(false);
   }
 
-  setLoading(false);
-}
   return(
 
     <div
@@ -66,10 +68,8 @@ export default function Signup(){
                  bg-[url('/bg.jpg')] bg-cover bg-center px-4"
     >
 
-      {/* DARK OVERLAY */}
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"/>
 
-      {/* CARD */}
       <form
         onSubmit={handleSignup}
         className="relative w-full max-w-lg p-8 sm:p-10
@@ -78,7 +78,6 @@ export default function Signup(){
                    backdrop-blur-xl shadow-2xl"
       >
 
-        {/* TITLE */}
         <h1 className="text-3xl font-semibold mb-2 text-center
                        bg-gradient-to-r from-sky-400 to-indigo-400
                        text-transparent bg-clip-text">
@@ -89,8 +88,6 @@ export default function Signup(){
           Join TruthLens and start verifying information instantly
         </p>
 
-
-        {/* NAME */}
         <input
           type="text"
           placeholder="Full Name"
@@ -103,8 +100,6 @@ export default function Signup(){
                      focus:border-sky-500 outline-none transition"
         />
 
-
-        {/* EMAIL */}
         <input
           type="email"
           placeholder="Email Address"
@@ -117,10 +112,7 @@ export default function Signup(){
                      focus:border-sky-500 outline-none transition"
         />
 
-
-        {/* PASSWORD */}
         <div className="relative mb-5">
-
           <input
             type={showPass ? "text" : "password"}
             placeholder="Password"
@@ -140,19 +132,14 @@ export default function Signup(){
           >
             {showPass ? "Hide" : "Show"}
           </span>
-
         </div>
 
-
-        {/* ERROR */}
         {error && (
           <p className="text-red-400 mb-4 text-sm text-center">
             {error}
           </p>
         )}
 
-
-        {/* BUTTON */}
         <button
           disabled={loading}
           className="w-full py-4 rounded-full text-lg font-semibold
@@ -163,8 +150,6 @@ export default function Signup(){
           {loading ? "Creating account..." : "Sign Up"}
         </button>
 
-
-        {/* LOGIN LINK */}
         <p className="text-center text-sm text-gray-300 mt-6">
           Already have an account?{" "}
           <span

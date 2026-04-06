@@ -1,3 +1,4 @@
+# ================= IMPORTS =================
 import os
 import re
 import sqlite3
@@ -5,14 +6,14 @@ import jwt
 import datetime
 import logging
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr, Field
 from werkzeug.security import generate_password_hash, check_password_hash
+from fastapi.responses import JSONResponse
 
 import joblib
-
 
 # ================= CONFIG =================
 SECRET = os.getenv("SECRET_KEY", "super_secure_production_key")
@@ -30,16 +31,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ================= APP =================
-app = FastAPI(
-    title="TruthLens API 🚀",
-    version="2.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
-)
+app = FastAPI(title="TruthLens API 🚀", version="3.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+   allow_origins=["https://truthlens-self.vercel.app"], # 👉 production me yaha apna frontend URL daalna
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -60,7 +56,8 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
         email TEXT UNIQUE,
-        password TEXT
+        password TEXT,
+        role TEXT DEFAULT 'user'
     )
     """)
 
@@ -78,29 +75,26 @@ def init_db():
 
     conn.commit()
     conn.close()
-
 init_db()
 
-# ================= MODEL LOAD =================
+# ================= MODEL =================
 try:
     model = joblib.load(MODEL_PATH)
     vectorizer = joblib.load(VEC_PATH)
-
     MODEL_READY = True
-    logger.info("✅ Model loaded")
-
-except Exception as e:
+except:
     MODEL_READY = False
     model = None
     vectorizer = None
-    logger.warning(f"⚠️ Model load failed: {e}")
+
 # ================= HELPERS =================
 def normalize(text):
     return re.sub(r"\W+", " ", text.lower()).strip()
 
-def create_token(user_id):
+def create_token(user_id, role):
     payload = {
         "id": user_id,
+        "role": role,
         "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=TOKEN_EXPIRE_HOURS)
     }
     return jwt.encode(payload, SECRET, algorithm="HS256")
@@ -109,7 +103,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
         return jwt.decode(credentials.credentials, SECRET, algorithms=["HS256"])
     except:
-        raise HTTPException(401, "Invalid or expired token")
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 def save_history(text, label, confidence):
     conn = get_db()
@@ -137,6 +131,8 @@ class Verify(BaseModel):
     text: str = Field(..., min_length=3)
 
 # ================= AUTH =================
+
+# 🔥 SIGNUP
 @app.post("/register")
 def register(data: Register):
     conn = get_db()
@@ -145,23 +141,38 @@ def register(data: Register):
     hashed = generate_password_hash(data.password)
 
     try:
-        cur.execute("INSERT INTO users(name,email,password) VALUES (?,?,?)",
-                    (data.name, data.email, hashed))
+        role = "user"
+
+        cur.execute(
+            "INSERT INTO users(name,email,password,role) VALUES (?,?,?,?)",
+            (data.name, data.email, hashed, role)
+        )
+
         conn.commit()
         user_id = cur.lastrowid
+
     except:
         raise HTTPException(400, "Email already exists")
+
     finally:
         conn.close()
 
-    return {"token": create_token(user_id)}
-
+    return {
+    "token": create_token(user_id, role),
+    "role": role,
+    "user": {
+        "id": user_id,
+        "name": data.name,
+        "email": data.email
+    }
+}
+# 🔥 LOGIN
 @app.post("/login")
 def login(data: Login):
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("SELECT id,name,email,password FROM users WHERE email=?", (data.email,))
+    cur.execute("SELECT id,name,email,password,role FROM users WHERE email=?", (data.email,))
     user = cur.fetchone()
     conn.close()
 
@@ -169,13 +180,20 @@ def login(data: Login):
         raise HTTPException(401, "Invalid credentials")
 
     return {
-        "token": create_token(user[0]),
+        "token": create_token(user[0], user[4]),
+        "role": user[4],
         "user": {
             "id": user[0],
             "name": user[1],
             "email": user[2]
         }
     }
+
+# 🔥 ADMIN PROTECTION
+def admin_only(user=Depends(verify_token)):
+    if user["role"] != "admin":
+        raise HTTPException(403, "Admin access only")
+    return user
 
 # ================= VERIFY =================
 @app.post("/verify")
@@ -184,8 +202,7 @@ def verify(data: Verify, user=Depends(verify_token)):
         return {
             "text": data.text,
             "label": "MODEL_NOT_READY",
-            "confidence": 0,
-            "message": "Model not loaded"
+            "confidence": 0
         }
 
     vec = vectorizer.transform([data.text])
@@ -206,43 +223,24 @@ def verify(data: Verify, user=Depends(verify_token)):
         "confidence": round(prob, 3)
     }
 
-# ================= HEALTH =================
-@app.get("/health")
-def health():
-    return {
-        "status": "ok",
-        "model": MODEL_READY
-    }
-
-# ================= ROOT =================
-from fastapi.responses import JSONResponse
-
-@app.get("/", include_in_schema=False)
-def root():
-    return JSONResponse(content={"message": "TruthLens API running 🚀"})
+# ================= DASHBOARD =================
 @app.get("/dashboard/stats")
-def dashboard_stats():
-
+def dashboard_stats(user=Depends(verify_token)):
     conn = get_db()
     cur = conn.cursor()
 
-    # ===== TOTAL =====
     cur.execute("SELECT COUNT(*) FROM history")
     total = cur.fetchone()[0]
 
-    # ===== TRUE =====
     cur.execute("SELECT COUNT(*) FROM history WHERE label='TRUE'")
     true = cur.fetchone()[0]
 
-    # ===== FALSE =====
     cur.execute("SELECT COUNT(*) FROM history WHERE label='FALSE'")
     false = cur.fetchone()[0]
 
-    # ===== UNVERIFIED =====
     cur.execute("SELECT COUNT(*) FROM history WHERE label='UNVERIFIED'")
     unverified = cur.fetchone()[0]
 
-    # ===== RECENT =====
     cur.execute("""
         SELECT claim, label, timestamp
         FROM history
@@ -251,26 +249,8 @@ def dashboard_stats():
     """)
 
     recent = [
-        {
-            "text": row[0],
-            "label": row[1],
-            "date": row[2]
-        }
-        for row in cur.fetchall()
-    ]
-
-    # ===== TRAFFIC (last 7 days) =====
-    cur.execute("""
-        SELECT DATE(timestamp), COUNT(*)
-        FROM history
-        GROUP BY DATE(timestamp)
-        ORDER BY DATE(timestamp) DESC
-        LIMIT 7
-    """)
-
-    traffic = [
-        {"day": row[0], "checks": row[1]}
-        for row in cur.fetchall()
+        {"text": r[0], "label": r[1], "date": r[2]}
+        for r in cur.fetchall()
     ]
 
     conn.close()
@@ -280,6 +260,10 @@ def dashboard_stats():
         "true": true,
         "false": false,
         "unverified": unverified,
-        "recent": recent,
-        "traffic": traffic
+        "recent": recent
     }
+
+# ================= ROOT =================
+@app.get("/", include_in_schema=False)
+def root():
+    return {"message": "TruthLens API running 🚀"}
