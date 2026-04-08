@@ -138,35 +138,42 @@ class Verify(BaseModel):
 # ================= AUTH =================
 @app.post("/api/auth/register")
 def register(data: Register):
-    with get_db() as conn:
-        cur = conn.cursor()
+    try:
+        with get_db() as conn:
+            cur = conn.cursor()
 
-        hashed = generate_password_hash(data.password)
+            hashed = generate_password_hash(data.password)
 
-        try:
             cur.execute(
                 "INSERT INTO users(name,email,password,role) VALUES (?,?,?,?)",
                 (data.name.strip(), data.email.lower(), hashed, "user")
             )
             conn.commit()
+
             user_id = cur.lastrowid
 
-        except sqlite3.IntegrityError:
-          return {
-                "success": False,
-                "error": "Email already exists"
-    }
-
-    return {
-        "success": True,
-        "token": create_token(user_id, "user"),
-        "user": {
-            "id": user_id,
-            "name": data.name,
-            "email": data.email
+        return {
+            "success": True,
+            "token": create_token(user_id, "user"),
+            "user": {
+                "id": user_id,
+                "name": data.name,
+                "email": data.email
+            }
         }
-    }
 
+    except sqlite3.IntegrityError:
+        return {
+            "success": False,
+            "error": "Email already exists"
+        }
+
+    except Exception as e:
+        print("REGISTER ERROR:", e)
+        return {
+            "success": False,
+            "error": "Server error"
+        }
 @app.post("/api/auth/login")
 def login(data: Login):
     try:
