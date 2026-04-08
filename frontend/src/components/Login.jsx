@@ -37,7 +37,7 @@ export default function Login() {
   setLoading(true);
 
   try {
-    const data = await apiFetch("/login", {
+    const data = await apiFetch("/api/auth/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -45,10 +45,9 @@ export default function Login() {
       body: JSON.stringify({ email, password }),
     });
 
-    if (!data?.token) {
-      throw new Error("Invalid response from server");
-    }
-
+    if (!data.success) {
+  throw new Error(data.error || "Login failed ❌");
+}
     setAuth(data);
 
     if (data.role === "admin") {
