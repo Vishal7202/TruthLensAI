@@ -35,11 +35,8 @@ app = FastAPI(title="TruthLens API 🚀", version="4.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "https://truthlens-self.vercel.app"
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -172,31 +169,36 @@ def register(data: Register):
 
 @app.post("/api/auth/login")
 def login(data: Login):
-    with get_db() as conn:
-        cur = conn.cursor()
+    try:
+        with get_db() as conn:
+            cur = conn.cursor()
 
-        cur.execute(
-            "SELECT id,name,email,password,role FROM users WHERE email=?",
-            (data.email.lower(),)
-        )
-        user = cur.fetchone()
+            cur.execute(
+                "SELECT id,name,email,password,role FROM users WHERE email=?",
+                (data.email.lower(),)
+            )
+            user = cur.fetchone()
 
-    if not user or not check_password_hash(user[3], data.password):
-            return {
-                "success": False,
-                "error": "Invalid credentials"
-    }
+        if not user:
+            return {"success": False, "error": "User not found"}
 
-    return {
-    "success": True,
-    "token": create_token(user[0], user[4]),
-    "role": user[4],   
-    "user": {
-        "id": user[0],
-        "name": user[1],
-        "email": user[2]
-    }
-}
+        if not check_password_hash(user[3], data.password):
+            return {"success": False, "error": "Wrong password"}
+
+        return {
+            "success": True,
+            "token": create_token(user[0], user[4]),
+            "role": user[4],
+            "user": {
+                "id": user[0],
+                "name": user[1],
+                "email": user[2]
+            }
+        }
+
+    except Exception as e:
+        print("LOGIN ERROR:", e)  # 🔥 logs में दिखेगा
+        return {"success": False, "error": "Server error"}
 # ================= VERIFY =================
 @app.post("/api/verify")
 def verify(data: Verify, user=Depends(verify_token)):
