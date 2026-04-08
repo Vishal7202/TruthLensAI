@@ -35,7 +35,10 @@ app = FastAPI(title="TruthLens API 🚀", version="4.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 🔥 FIX (production me specific domain use karna)
+    allow_origins=[
+        "http://localhost:5173",
+        "https://truthlens-self.vercel.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
