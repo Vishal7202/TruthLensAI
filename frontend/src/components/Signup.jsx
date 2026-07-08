@@ -41,15 +41,12 @@ export default function Signup(){
 
     try {
       // ✅ FIXED (direct backend call)
-      const data = await apiFetch("/register", {
+      const data = await apiFetch("/api/auth/register", {
         method: "POST",
         body: JSON.stringify({ name, email, password }),
       });
 
-      // ✅ FIXED (proper storage)
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("role", data.role);
-
+      
       alert("Account created successfully ✅");
 
       navigate("/login");

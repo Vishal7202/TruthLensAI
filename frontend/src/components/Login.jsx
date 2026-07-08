@@ -48,12 +48,13 @@ export default function Login() {
     if (!data.success) {
   throw new Error(data.error || "Login failed ❌");
 }
+console.log("LOGIN RESPONSE:", data);
     setAuth(data);
 
     if (data.role === "admin") {
-      navigate("/admin-dashboard");
+       navigate("/dashboard");
     } else {
-      navigate("/user-dashboard");
+     navigate("/dashboard");
     }
 
   } catch (err) {

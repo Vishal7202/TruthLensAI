@@ -87,6 +87,11 @@ try:
     model = joblib.load(MODEL_PATH)
     vectorizer = joblib.load(VEC_PATH)
     MODEL_READY = True
+
+    print("MODEL PATH:", MODEL_PATH)
+    print("VECTORIZER PATH:", VEC_PATH)
+    print("MODEL TYPE:", type(model))
+
 except Exception as e:
     logger.warning("Model not loaded: %s", e)
     MODEL_READY = False
@@ -134,6 +139,9 @@ class Login(BaseModel):
 
 class Verify(BaseModel):
     text: str = Field(..., min_length=3)
+    language: str = "English"
+    depth: str = "Balanced"
+    explain: str = "Detailed"
 
 # ================= AUTH =================
 @app.post("/api/auth/register")
@@ -209,62 +217,180 @@ def login(data: Login):
 # ================= VERIFY =================
 @app.post("/api/verify")
 def verify(data: Verify, user=Depends(verify_token)):
+
+    print("LANGUAGE:", data.language)
+    print("DEPTH:", data.depth)
+    print("EXPLAIN:", data.explain)
+
     if not MODEL_READY:
-        return {"label": "MODEL_NOT_READY", "confidence": 0}
+        return {
+            "label": "MODEL_NOT_READY",
+            "confidence": 0,
+            "explanation": "AI model is not loaded."
+        }
 
     vec = vectorizer.transform([data.text])
-    prob = model.predict_proba(vec)[0][1]
 
-    if prob > 0.7:
+    probs = model.predict_proba(vec)[0]
+
+    false_prob = float(probs[0])
+    true_prob = float(probs[1])
+
+    confidence = max(false_prob, true_prob) * 100
+
+    if true_prob >= 0.85:
         label = "TRUE"
-    elif prob > 0.4:
+    elif true_prob >= 0.65:
+        label = "LIKELY_TRUE"
+    elif true_prob >= 0.40:
         label = "UNVERIFIED"
+    elif true_prob >= 0.20:
+        label = "LIKELY_FALSE"
     else:
         label = "FALSE"
 
-    save_history(data.text, label, prob)
+    save_history(data.text, label, round(confidence, 2))
+
+    if confidence >= 85:
+        reliability = "HIGH"
+    elif confidence >= 65:
+        reliability = "MEDIUM"
+    else:
+        reliability = "LOW"
+
+    if data.explain == "Simple":
+        explanation = (
+            f"Claim classified as {label} "
+            f"with {round(confidence,1)}% confidence."
+        )
+
+    elif data.explain == "Technical":
+        explanation = (
+            f"Model: LogisticRegression | "
+            f"True Probability={round(true_prob*100,2)}% | "
+            f"False Probability={round(false_prob*100,2)}%"
+        )
+
+    else:
+        explanation = (
+            f"The AI model analyzed the claim and "
+            f"classified it as {label}. "
+            f"Confidence level is "
+            f"{round(confidence,1)}% "
+            f"({reliability} reliability)."
+        )
 
     return {
         "text": data.text,
         "label": label,
-        "confidence": round(prob, 3)
+        "confidence": round(confidence, 2),
+        "reliability": reliability,
+        "true_probability": round(true_prob * 100, 2),
+        "false_probability": round(false_prob * 100, 2),
+        "language": data.language,
+        "depth": data.depth,
+        "explanation": explanation
     }
 
 # ================= DASHBOARD =================
 @app.get("/api/dashboard/stats")
 def dashboard_stats(user=Depends(verify_token)):
-    with get_db() as conn:
-        cur = conn.cursor()
+    try:
+        with get_db() as conn:
+            cur = conn.cursor()
 
-        cur.execute("SELECT COUNT(*) FROM history")
-        total = cur.fetchone()[0]
+            # Total Predictions
+            cur.execute("SELECT COUNT(*) FROM history")
+            total = cur.fetchone()[0] or 0
 
-        cur.execute("SELECT COUNT(*) FROM history WHERE label='TRUE'")
-        true = cur.fetchone()[0]
+            # TRUE Predictions
+            cur.execute("SELECT COUNT(*) FROM history WHERE label = ?", ("TRUE",))
+            true_count = cur.fetchone()[0] or 0
 
-        cur.execute("SELECT COUNT(*) FROM history WHERE label='FALSE'")
-        false = cur.fetchone()[0]
+            # FALSE Predictions
+            cur.execute("SELECT COUNT(*) FROM history WHERE label = ?", ("FALSE",))
+            false_count = cur.fetchone()[0] or 0
 
-        cur.execute("SELECT COUNT(*) FROM history WHERE label='UNVERIFIED'")
-        unverified = cur.fetchone()[0]
+            # UNVERIFIED Predictions
+            cur.execute("SELECT COUNT(*) FROM history WHERE label = ?", ("UNVERIFIED",))
+            unverified_count = cur.fetchone()[0] or 0
 
-        cur.execute("""
-        SELECT claim, label, timestamp
-        FROM history
-        ORDER BY timestamp DESC
-        LIMIT 5
-        """)
+            # Recent Activity
+            cur.execute("""
+                SELECT claim, label, timestamp
+                FROM history
+                ORDER BY timestamp DESC
+                LIMIT 5
+            """)
 
-        recent = [{"text": r[0], "label": r[1], "date": r[2]} for r in cur.fetchall()]
+            recent = []
+            rows = cur.fetchall()
 
+            for row in rows:
+                recent.append({
+                    "text": row[0],
+                    "label": row[1],
+                    "date": row[2]
+                })
+
+            return {
+                "success": True,
+                "total": total,
+                "true": true_count,
+                "false": false_count,
+                "unverified": unverified_count,
+                "recent": recent
+            }
+
+    except Exception as e:
+        print("DASHBOARD ERROR:", e)
+
+        return {
+            "success": False,
+            "error": str(e),
+            "total": 0,
+            "true": 0,
+            "false": 0,
+            "unverified": 0,
+            "recent": []
+        }
+# ================= HISTORY =================
+@app.get("/history")
+def get_history():
+
+    try:
+        with get_db() as conn:
+            cur = conn.cursor()
+
+            cur.execute("""
+                SELECT claim,label,confidence,timestamp
+                FROM history
+                ORDER BY id DESC
+            """)
+
+            rows = cur.fetchall()
+
+            return [
+                {
+                    "claim": row[0],
+                    "label": row[1],
+                    "confidence": row[2],
+                    "time": row[3]
+                }
+                for row in rows
+            ]
+
+    except Exception as e:
+        print("HISTORY ERROR:", e)
+        return []
+
+# ================= HEALTH =================
+@app.get("/health")
+def health():
     return {
-        "total": total,
-        "true": true,
-        "false": false,
-        "unverified": unverified,
-        "recent": recent
+        "status": "ok",
+        "message": "TruthLens API Running"
     }
-
 # ================= ROOT =================
 @app.get("/")
 def root():

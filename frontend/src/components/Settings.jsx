@@ -16,6 +16,9 @@ export default function Settings() {
   // ================= LOAD SAVED =================
   useEffect(() => {
     const s = JSON.parse(localStorage.getItem("truthlens_settings"));
+
+    console.log("LOADED SETTINGS:", s);
+    
     if (s) {
       setDarkMode(s.darkMode);
       setLanguage(s.language);
@@ -47,11 +50,13 @@ export default function Settings() {
   // ================= LOGOUT =================
   function logout() {
 
-    localStorage.removeItem("truthlens_settings");
-    localStorage.removeItem("auth");
+  localStorage.removeItem("token");
+  localStorage.removeItem("role");
+  localStorage.removeItem("user");
+  localStorage.removeItem("truthlens_settings");
 
-    window.location.href = "/login";
-  }
+  window.location.href = "/login";
+}
 
   return (
     <div className="max-w-4xl">

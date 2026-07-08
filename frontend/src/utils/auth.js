@@ -4,8 +4,15 @@ import { apiFetch } from "./api";
 export const setAuth = (data) => {
   if (!data?.token) return;
 
+  // ✅ token
   localStorage.setItem("token", data.token);
 
+  // ✅ role (IMPORTANT FIX)
+  if (data.role) {
+    localStorage.setItem("role", data.role);
+  }
+
+  // ✅ user
   if (data.user) {
     localStorage.setItem("user", JSON.stringify(data.user));
   }
@@ -28,6 +35,11 @@ export const getToken = () => {
   return localStorage.getItem("token");
 };
 
+// ================= GET ROLE =================
+export const getRole = () => {
+  return localStorage.getItem("role");
+};
+
 // ================= CHECK LOGIN =================
 export const isLoggedIn = () => {
   return !!getToken();
@@ -37,6 +49,7 @@ export const isLoggedIn = () => {
 export const clearAuth = () => {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
+  localStorage.removeItem("role"); // ✅ FIX
 
   window.location.href = "/login";
 };
@@ -46,11 +59,11 @@ export const signup = async ({ name, email, password }) => {
   try {
     const data = await apiFetch("/register", {
       method: "POST",
-        body: JSON.stringify({
-          name: name,
-          email,
-          password,
-        }),
+      body: JSON.stringify({
+        name,
+        email,
+        password,
+      }),
     });
 
     return data;
@@ -71,7 +84,7 @@ export const login = async ({ email, password }) => {
       }),
     });
 
-    // auto save auth
+    // ✅ auto save auth (ab role bhi save hoga)
     setAuth(data);
 
     return data;

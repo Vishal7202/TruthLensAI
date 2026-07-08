@@ -158,66 +158,50 @@ return()=>clearInterval(id);
 
 /* ================= ACTIONS ================= */
 
-async function handleVerify(){
+async function handleVerify() {
 
-if(!text.trim()){
-setError("Please enter some text first.");
-return;
-}
+  if (!text.trim()) {
+    setError("Please enter some text first.");
+    return;
+  }
 
-try{
-setLoading(true);
-setError("");
-setResult(null);
+  try {
+    setLoading(true);
+    setError("");
+    setResult(null);
 
-const data = await apiFetch("/verify", {
-  method: "POST",
-  body: JSON.stringify({ text })
-});
+    // ✅ Load settings
+    const settings =
+      JSON.parse(localStorage.getItem("truthlens_settings")) || {};
 
-setResult(Array.isArray(data)?data:[data]);
+    console.log("SETTINGS:", settings);
 
-}catch(err){
-console.error(err);
-setError("Server error. Please try again.");
-}
-finally{
-setLoading(false);
-}
-}
+    const data = await apiFetch("/api/verify", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text,
+        language: settings.language || "English",
+        depth: settings.depth || "Balanced",
+        explain: settings.explain || "Detailed",
+      }),
+    });
 
-/* ================= PDF VERIFY ================= */
+    console.log("VERIFY RESPONSE:", data);
 
-async function handleVerifyPDF(){
+    setResult(Array.isArray(data) ? data : [data]);
 
-if(!pdfFile){
-setError("Please select a PDF first.");
-return;
-}
+    // History refresh event
+    window.dispatchEvent(new Event("historyUpdated"));
 
-try{
-setLoading(true);
-setError("");
-setResult(null);
-
-const formData=new FormData();
-formData.append("file",pdfFile);
-
-const res=await fetch(`${import.meta.env.VITE_API_URL}/verify-pdf`,{
-method:"POST",
-body:formData
-});
-
-const data=await res.json();
-setResult(Array.isArray(data)?data:[data]);
-
-}catch(err){
-console.error(err);
-setError("PDF verification failed.");
-}
-finally{
-setLoading(false);
-}
+  } catch (err) {
+    console.error("VERIFY ERROR:", err);
+    setError("Server error. Please try again.");
+  } finally {
+    setLoading(false);
+  }
 }
 
 /* ================= COPY ================= */
@@ -228,8 +212,7 @@ setCopiedIndex(index);
 setTimeout(()=>setCopiedIndex(null),1500);
 }
 
-
-/* ================= UI ================= */
+{/* ================= UI ================= */}
 
 return (
 <div className="relative w-full min-h-screen text-white overflow-hidden bg-[#020617]">
@@ -249,14 +232,6 @@ return (
 </div>
 
 <div className="max-w-[1400px] mx-auto px-6 md:px-12 pt-20 pb-32">
-
-
-
-
-
-
-
-
 
 {/* ================= HERO ================= */}
 
@@ -309,7 +284,7 @@ onClick={handleVerify}
 disabled={loading}
 className="px-7 py-3 rounded-xl font-semibold
 bg-gradient-to-r from-sky-500 to-indigo-500
-hover:scale-105 transition shadow-md">
+hover:scale-105 transition shadow-md disabled:opacity-50">
 {loading ? "Analyzing..." : "Verify with AI"}
 </button>
 
@@ -318,7 +293,7 @@ onClick={handleVerifyPDF}
 disabled={loading}
 className="px-7 py-3 rounded-xl font-semibold
 bg-gradient-to-r from-indigo-500 to-purple-500
-hover:scale-105 transition shadow-md">
+hover:scale-105 transition shadow-md disabled:opacity-50">
 Verify PDF
 </button>
 
@@ -372,7 +347,7 @@ backdrop-blur-xl shadow-xl">
 
 {result.map((item,index)=>{
 
-const percent = Math.round(item.confidence || 0);
+const percent = Math.round((item.confidence || 0) * 100);
 const contradictionRisk=Math.min(100,100-percent);
 const biasScore=Math.min(100,percent*0.6+25);
 
@@ -393,18 +368,20 @@ transition-all duration-300">
 <div className="flex items-center gap-4">
 
 <div className={`px-4 py-1 rounded-lg text-xs font-semibold border
-${item.label==="LIKELY FALSE"
+${item.label==="FALSE"
 ? "bg-red-500/15 text-red-400 border-red-500/30"
-: item.label==="POSSIBLY TRUE"
+: item.label==="MISLEADING"
 ? "bg-yellow-500/15 text-yellow-300 border-yellow-500/30"
+: item.label==="PARTIALLY_TRUE"
+? "bg-blue-500/15 text-blue-300 border-blue-500/30"
 : item.label==="TRUE"
 ? "bg-green-500/15 text-green-400 border-green-500/30"
-: "bg-blue-500/15 text-blue-300 border-blue-500/30"}`}>
+: "bg-gray-500/15 text-gray-300 border-gray-500/30"}`}>
 {item.label}
 </div>
 
 <span className="text-white/50 text-xs">
-Source: {item.source || "AI Verified"}
+Source: {item.source || "AI Engine"}
 </span>
 
 <span className="text-indigo-400 text-xs">
@@ -425,98 +402,34 @@ Confidence Model v1.0
 {item.claim}
 </h2>
 
-
-
-
-{/* SCORE + METRICS */}
+{/* SCORE */}
 
 <div className="grid md:grid-cols-[140px_1fr] gap-10 items-center mb-12">
 
 <div className="md:sticky md:top-28 flex flex-col items-center">
 <ConfidenceMeter value={percent} />
-<p className="text-sm text-white/60 mt-4 text-center">
-Overall Trust Score
-</p>
-<p className="text-xs text-white/40 mt-1">
-{percent < 30
-? "Critical Risk"
-: percent < 60
-? "Uncertain"
-: percent < 80
-? "Likely Accurate"
-: "Highly Reliable"}
-</p>
-</div>
-
-<div className="space-y-6">
-
-<div>
-<p className="text-xs text-white/60 mb-2">Confidence Level</p>
-<div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden">
-<div
-className="h-3 bg-gradient-to-r from-red-500 via-yellow-400 to-green-500 rounded-full transition-all duration-700"
-style={{width:`${percent}%`}}
-/>
-</div>
-</div>
-
-<div className="h-px bg-white/5 my-6"/>
-
-<div>
-<p className="text-xs text-white/60">Bias Detection</p>
-<div className="w-full h-2 bg-slate-800 rounded-full mt-1">
-<div className="h-2 bg-yellow-400 rounded-full transition-all duration-700"
-style={{width:`${biasScore}%`}}/>
-</div>
 </div>
 
 <div>
-<p className="text-xs text-white/60">Contradiction Risk</p>
-<div className="w-full h-2 bg-slate-800 rounded-full mt-1">
-<div className="h-2 bg-red-400 rounded-full transition-all duration-700"
-style={{width:`${contradictionRisk}%`}}/>
-</div>
-</div>
-
-<div>
-<p className="text-xs text-white/60">Context Strength</p>
-<div className="w-full h-2 bg-slate-800 rounded-full mt-1">
-<div className="h-2 bg-green-400 rounded-full transition-all duration-700"
+<p className="text-sm text-white/60 mb-2">Confidence Level</p>
+<div className="w-full h-3 bg-slate-800 rounded-full">
+<div className="h-3 bg-gradient-to-r from-red-500 via-yellow-400 to-green-500 rounded-full"
 style={{width:`${percent}%`}}/>
 </div>
 </div>
 
 </div>
 
-</div>
+{/* REASON */}
 
-{/* REASONING */}
+<TypingText text={item.explanation || "No explanation available"} />
 
-<details className="group mb-10">
-<summary className="cursor-pointer text-indigo-400 hover:underline text-sm">
-View AI Reasoning
-</summary>
-<div className="mt-6 p-6 rounded-2xl bg-[#0b1220] border border-white/10 shadow-inner">
-<TypingText text={item.explanation || ""} />
-</div>
-</details>
-
-<div className="flex flex-wrap gap-4 mt-6">
+<div className="flex gap-4 mt-6">
 
 <button
 onClick={()=>copyText(item.explanation||"",index)}
-className="px-5 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-indigo-400 transition text-sm">
-{copiedIndex===index?"Copied ✓":"Copy Explanation"}
-</button>
-
-<button
-className="px-5 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-sky-400 transition text-sm">
-Download AI Report
-</button>
-
-<button
-className="px-5 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-purple-400 transition text-sm">
-Share Result
+className="px-4 py-2 bg-white/5 border border-white/10 rounded">
+{copiedIndex===index?"Copied":"Copy"}
 </button>
 
 </div>
