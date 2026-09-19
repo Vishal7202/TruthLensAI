@@ -78,6 +78,34 @@ def init_db():
         )
         """)
 
+                # ================= CREATE ADMIN =================
+        admin_email = os.getenv("ADMIN_EMAIL")
+        admin_password = os.getenv("ADMIN_PASSWORD")
+
+        if admin_email and admin_password:
+            cur.execute(
+                "SELECT id FROM users WHERE email=?",
+                (admin_email.lower(),)
+            )
+
+            if not cur.fetchone():
+                admin_hash = generate_password_hash(admin_password)
+
+                cur.execute(
+                    """
+                    INSERT INTO users(name, email, password, role)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        "Administrator",
+                        admin_email.lower(),
+                        admin_hash,
+                        "admin"
+                    )
+                )
+
+                print("✅ Admin account created")
+
         conn.commit()
 
 init_db()
