@@ -4,6 +4,8 @@ import { isLoggedIn } from "./utils/auth";
 import Landing from "./components/Landing";
 import Layout from "./components/Layout";
 import Dashboard from "./components/Dashboard";
+import AdminDashboard from "./components/AdminDashboard";
+
 import VerifyPanel from "./components/VerifyPanel";
 import History from "./components/History";
 import Login from "./components/Login";
@@ -18,19 +20,44 @@ function PrivateRoute({ children }) {
   return isLoggedIn() ? children : <Navigate to="/login" replace />;
 }
 
+// ================= ADMIN ROUTE =================
+function AdminRoute({ children }) {
+  const token = localStorage.getItem("token");
+  const role = localStorage.getItem("role");
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (role !== "admin") {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+}
+
 // ================= PUBLIC BLOCK ROUTE =================
-// (logged in user ko login/signup pe nahi jane dena)
+// Logged-in user ko login/signup par wapas nahi jaane dena
 function PublicRoute({ children }) {
-  return isLoggedIn() ? <Navigate to="/dashboard" replace /> : children;
+  if (!isLoggedIn()) {
+    return children;
+  }
+
+  const role = localStorage.getItem("role");
+
+  if (role === "admin") {
+    return <Navigate to="/admin-dashboard" replace />;
+  }
+
+  return <Navigate to="/dashboard" replace />;
 }
 
 export default function App() {
-
   return (
-
     <Routes>
 
       {/* ================= PUBLIC ================= */}
+
       <Route path="/" element={<Landing />} />
 
       <Route
@@ -52,9 +79,12 @@ export default function App() {
       />
 
       <Route path="/privacy" element={<Privacy />} />
+
       <Route path="/terms" element={<Terms />} />
 
-      {/* ================= PRIVATE ================= */}
+
+      {/* ================= USER PRIVATE ================= */}
+
       <Route
         path="/dashboard/*"
         element={
@@ -64,16 +94,48 @@ export default function App() {
         }
       >
         <Route index element={<Dashboard />} />
-        <Route path="verify" element={<VerifyPanel />} />
-        <Route path="history" element={<History />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="messages" element={<ContactMessages />} />
+
+        <Route
+          path="verify"
+          element={<VerifyPanel />}
+        />
+
+        <Route
+          path="history"
+          element={<History />}
+        />
+
+        <Route
+          path="settings"
+          element={<Settings />}
+        />
+
+        <Route
+          path="messages"
+          element={<ContactMessages />}
+        />
       </Route>
 
+
+      {/* ================= ADMIN PRIVATE ================= */}
+
+      <Route
+        path="/admin-dashboard"
+        element={
+          <AdminRoute>
+            <AdminDashboard />
+          </AdminRoute>
+        }
+      />
+
+
       {/* ================= FALLBACK ================= */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+
+      <Route
+        path="*"
+        element={<Navigate to="/" replace />}
+      />
 
     </Routes>
-
   );
 }

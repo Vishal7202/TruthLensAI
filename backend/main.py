@@ -56,57 +56,48 @@ def init_db():
     with get_db() as conn:
         cur = conn.cursor()
 
+        # ================= USERS =================
         cur.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            email TEXT UNIQUE,
-            password TEXT,
-            role TEXT DEFAULT 'user'
-        )
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT,
+                email TEXT UNIQUE,
+                password TEXT,
+                role TEXT DEFAULT 'user'
+            )
         """)
 
+        # ================= HISTORY =================
         cur.execute("""
-        CREATE TABLE IF NOT EXISTS history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            claim TEXT,
-            claim_norm TEXT,
-            label TEXT,
-            confidence REAL,
-            category TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
+            CREATE TABLE IF NOT EXISTS history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                claim TEXT,
+                claim_norm TEXT,
+                label TEXT,
+                confidence REAL,
+                category TEXT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
         """)
 
-                # ================= CREATE ADMIN =================
+        # ================= ADMIN BOOTSTRAP =================
         admin_email = os.getenv("ADMIN_EMAIL")
-        admin_password = os.getenv("ADMIN_PASSWORD")
 
-        if admin_email and admin_password:
+        if admin_email:
+            admin_email = admin_email.strip().lower()
+
             cur.execute(
-                "SELECT id FROM users WHERE email=?",
-                (admin_email.lower(),)
+                "UPDATE users SET role = 'admin' WHERE email = ?",
+                (admin_email,)
             )
 
-            if not cur.fetchone():
-                admin_hash = generate_password_hash(admin_password)
-
-                cur.execute(
-                    """
-                    INSERT INTO users(name, email, password, role)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    (
-                        "Administrator",
-                        admin_email.lower(),
-                        admin_hash,
-                        "admin"
-                    )
-                )
-
-                print("✅ Admin account created")
+            if cur.rowcount > 0:
+                print(f"✅ Admin role assigned to: {admin_email}")
+            else:
+                print(f"⚠️ Admin user not found: {admin_email}")
 
         conn.commit()
+
 
 init_db()
 

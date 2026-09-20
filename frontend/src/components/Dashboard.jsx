@@ -53,7 +53,11 @@ const token=localStorage.getItem("token");
 
 
 
-const data = await apiFetch("/health");
+const data = await apiFetch("/api/dashboard/stats", {
+  headers: {
+    Authorization: `Bearer ${token}`,
+  },
+});
 
 const target=[
 {label:"Total Checks",value:data.total??0,color:"from-sky-500 to-indigo-500"},
